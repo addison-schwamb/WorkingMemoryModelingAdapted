@@ -16,7 +16,7 @@ def set_posthoc_params(x_ICs, r_ICs):
     ph_params['n_fw'] = 50 # forward simulate the network (autonomously) for 50xTrial_length 
     ph_params['n_ICs'] = 100 # NO. of initial conditions for finding fps
     ph_params['seed'] = 1
-    ph_params['ICs'] = {'r': r_ICs, 'x': x_ICs}. # ICs (x:state r:firing rate) saved after training
+    ph_params['ICs'] = {'r': r_ICs, 'x': x_ICs} # ICs (x:state r:firing rate) saved after training
     ph_params['extend_delays'] = [5, 10, 15, 25, 35, 50, 100, 120, 150]
     #[5, 10, 15, 25, 50, 100, 150]
     ph_params['n_fw_end'] = 1  # fw from trial ends

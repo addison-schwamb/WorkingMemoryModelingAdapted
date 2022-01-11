@@ -13,9 +13,9 @@ from posthoc_tests import *
 dir = '/scratch/elham/results3500c/'
 
 parser = argparse.ArgumentParser()
-parser.add_argument('-d', type=json.loads)
+parser.add_argument('-d', type=str)
 args = parser.parse_args()
-kwargs= args.d
+kwargs= json.loads(args.d)
 
 
 def set_all_parameters( g, pg, fb_var, input_var,  n_train, encoding, seed, init_dist, activation='tanh', isFORCE = False):
@@ -84,7 +84,6 @@ def get_digits_reps():
 
 
 params = set_all_parameters(**kwargs)
-
 labels, digits_rep = get_digits_reps()
 task_prs = params['task']
 train_prs = params['train']
