@@ -4,19 +4,21 @@ main file to train/test RNN and perform posthoc tests on WashU cluster
 written in Python 3.8.3
 @ Elham
 """
+
+#input string format: "{\"g\":<val>,\"pg\":<val>,\"fb_var\":<val>,\"input_var\":<val>,\"n_train\":<val>,\"encoding\":<val>,\"seed\":<val>,\"init_dist\":\"<dist>\"}"
+
 import argparse
 import json
 import sys
 from SPM_task import *
 from train_force import *
 from posthoc_tests import *
-dir = '/scratch/elham/results3500c/'
+dir = ''
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-d', type=str)
 args = parser.parse_args()
 kwargs= json.loads(args.d)
-
 
 def set_all_parameters( g, pg, fb_var, input_var,  n_train, encoding, seed, init_dist, activation='tanh', isFORCE = False):
     params = dict()
@@ -76,7 +78,9 @@ def set_all_parameters( g, pg, fb_var, input_var,  n_train, encoding, seed, init
 def get_digits_reps():
 
     with open('allDigCNNMNIST', 'rb') as f:
-        z_mean, z_log_var, z_sample, x_test, y_test = pickle.load(f)
+        z_mean, z_log_var, z_sample = pickle.load(f)
+        x_test = pickle.load(f)
+        y_test = pickle.load(f)
 
     y_test, x_test = np.array(y_test), x_test.reshape([x_test.shape[0], 28, 28])
 
