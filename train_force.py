@@ -355,6 +355,8 @@ def test(params, x_train, exp_mat, target_mat, dummy_mat, input_digits):
 				x21 = x_mat[:, i - 1][:, np.newaxis]
 				i21 = 1
 
+			print('test digts: ',test_digits[trial])
+			print('z: ',np.around(2*z)/2.0)
 			trial += 1
 
 

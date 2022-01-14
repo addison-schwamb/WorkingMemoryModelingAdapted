@@ -107,6 +107,15 @@ elif train_prs['FORCE']:
 	print('FORCE IS RUNNING\n')
 	x_train, params = train_FORCE(params, exp_mat, target_mat, dummy_mat, input_digits, dist=train_prs['init_dist'])
 
+model_prs = params['model']
+wo, wd = model_prs['wo'], model_prs['wd']
+wf, wfd = model_prs['wf'], model_prs['wfd']
+J = model_prs['J']
+JT = J + np.matmul(wf,wo.T) + np.matmul(wfd,wd.T)
+JT_dim = np.shape(JT)
+num_to_keep = (0.2*((JT<0).sum())).astype(int)
+print(np.random.randint(1,JT_dim[0],(2,num_to_keep)))
+
 x_ICs, r_ICs, internal_x = test(params, x_train, exp_mat, target_mat, dummy_mat, input_digits)
 
 error_ratio = error_rate(params, x_ICs, digits_rep, labels)
