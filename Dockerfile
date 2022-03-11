@@ -9,8 +9,6 @@ RUN pip install drawnow
 COPY allDigCNNMNIST .
 COPY posthoc_tests.py .
 COPY robustness_tests.py .
-COPY SPM_task.py
-COPY train_force.py
+COPY SPM_task.py .
+COPY train_force.py .
 COPY train_posthoc_clst.py .
-COPY train_input.py .
-COPY retrain.py .
