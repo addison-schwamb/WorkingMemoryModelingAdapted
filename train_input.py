@@ -70,8 +70,7 @@ def set_all_parameters( g, pg, fb_var, input_var,  n_train, encoding, seed, init
     params['damage'] = damage_params
 
     other_params = dict()
-    other_params['name'] = '_'.join(['{}'.format(val) if type(val) != list
-                                     else '{}'.format(''.join([str(s) for s in val])) for k, val in kwargs.items()])
+    other_params['name'] = str(n_train) + '_training_steps'
     print('name is = ',other_params['name']  )
     #str(task_params['output_encoding']) + '_g' + str(net_params['g']) + '_' +
     #  str(train_params['n_train']+ train_params['n_train_ext'])+ 'Gauss_S' + 'FORCE'
@@ -110,6 +109,8 @@ if not msc_prs['train_input']:
     print('Training single network with FORCE Reinforce\n')
     x_train, params = train(params, exp_mat, target_mat, dummy_mat, input_digits, dist=train_prs['init_dist'])
     x_ICs, r_ICs, internal_x = test(params, x_train, exp_mat, target_mat, dummy_mat, input_digits)
+    msc_prs['name'] = 'single_network_' + msc_prs['name']
+    params['msc'] = msc_prs
 
 elif msc_prs['train_input']:
     int_params, int_x_train = read_data_variable_size('intact_net_500', prefix='train', dir=dir)
@@ -118,9 +119,20 @@ elif msc_prs['train_input']:
     #x_ICs, r_ICs, internal_x = test_input()
 
 if damage_prs['pct_rmv'] > 0:
-    pass
+    model_prs = params['model']
+    damage_prs = params['damage']
+    print(damage_prs['inhibitory'])
+    JT = model_prs['JT']
+    JT = remove_neurons(JT,damage_prs['pct_rmv'],damage_prs['inhibitory'])
+    model_prs['JT'] = JT
+    params['model'] = model_prs
+    msc_prs['name'] = msc_prs['name'] + str(damage_prs['pct_rmv']*100) + '%_'
+    if damage_prs['inhibitory']: msc_prs['name'] = msc_prs['name'] + 'inhibitory_removed'
+    else: other_params['name'] = msc_prs['name'] = msc_prs['name'] + 'excitatory_removed'
+    params['msc'] = msc_prs
+    
 
-save_data_variable_size(params, x_train, name='intact_net_500', prefix='train', dir=dir)
+save_data_variable_size(params, x_train, name=msc_prs['name'], prefix='train', dir=dir)
 
 
 error_ratio = error_rate(params, x_ICs, digits_rep, labels)
