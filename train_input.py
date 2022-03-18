@@ -121,14 +121,13 @@ elif msc_prs['train_input']:
 if damage_prs['pct_rmv'] > 0:
     model_prs = params['model']
     damage_prs = params['damage']
-    print(damage_prs['inhibitory'])
     JT = model_prs['JT']
     JT = remove_neurons(JT,damage_prs['pct_rmv'],damage_prs['inhibitory'])
     model_prs['JT'] = JT
     params['model'] = model_prs
-    msc_prs['name'] = msc_prs['name'] + str(damage_prs['pct_rmv']*100) + '%_'
+    msc_prs['name'] = msc_prs['name'] + '_' + str(damage_prs['pct_rmv']*100) + '%_'
     if damage_prs['inhibitory']: msc_prs['name'] = msc_prs['name'] + 'inhibitory_removed'
-    else: other_params['name'] = msc_prs['name'] = msc_prs['name'] + 'excitatory_removed'
+    else: msc_prs['name'] = msc_prs['name'] = msc_prs['name'] + 'excitatory_removed'
     params['msc'] = msc_prs
     
 
