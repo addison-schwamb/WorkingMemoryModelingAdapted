@@ -103,10 +103,12 @@ msc_prs = params['msc']
 task = sum_task_experiment(task_prs['n_digits'], train_prs['n_train'], train_prs['n_train_ext'], train_prs['n_test'], task_prs['time_intervals'],
                            net_prs['dt'], task_prs['output_encoding'], task_prs['keep_perms'] , digits_rep, labels, msc_prs['seed'])
 
+
 exp_mat, target_mat, dummy_mat, input_digits, output_digits = task.experiment()
 
 if not msc_prs['train_input']:
     print('Training single network with FORCE Reinforce\n')
+	single_net = Network({'network':net_prs,'train':train_prs}, msc_prs['seed'])
     x_train, params = train(params, exp_mat, target_mat, dummy_mat, input_digits, dist=train_prs['init_dist'])
     x_ICs, r_ICs, internal_x = test(params, x_train, exp_mat, target_mat, dummy_mat, input_digits)
     msc_prs['name'] = 'single_network_' + msc_prs['name']
