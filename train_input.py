@@ -12,6 +12,7 @@ import json
 import sys
 import os
 from SPM_task import *
+from Network import *
 from train_force import *
 from posthoc_tests import *
 from damage_network import *
@@ -108,7 +109,8 @@ exp_mat, target_mat, dummy_mat, input_digits, output_digits = task.experiment()
 
 if not msc_prs['train_input']:
     print('Training single network with FORCE Reinforce\n')
-	single_net = Network({'network':net_prs,'train':train_prs}, msc_prs['seed'])
+    net_input_params = {**net_prs, **train_prs}
+    single_net = Network(net_input_params, msc_prs['seed'])
     x_train, params = train(params, exp_mat, target_mat, dummy_mat, input_digits, dist=train_prs['init_dist'])
     x_ICs, r_ICs, internal_x = test(params, x_train, exp_mat, target_mat, dummy_mat, input_digits)
     msc_prs['name'] = 'single_network_' + msc_prs['name']
