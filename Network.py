@@ -36,15 +36,32 @@ class Network:
         wo = np.zeros([N,params['d_output']])
         wd = np.zeros([N,params['d_input']])
         
-        model_prs = {'Pw': Pw, 'Pd': Pd, 'J': J, 'x': x, 'wf': wf, 'wo': wo, 'wfd': wfd, 'wd': wd, 'wi': wi}
+        JT = params['g']*J + np.matmul(wf, wo.T) + np.matmul(wfd, wd.T)
+        model_prs = {'JT': JT, 'Pw': Pw, 'Pd': Pd, 'J': J, 'x': x, 'wf': wf, 'wo': wo, 'wfd': wfd, 'wd': wd, 'wi': wi}
         
         self.params = params;
         self.params.update(model_prs)
+        self.x = x
 
     
-    def memory_trial():
+    def memory_trial(self,input):
         # run a single trial of the memory task, for training or testing
-        pass
+        dt = self.params['dt']
+        tau = self.params['tau']
+        JT = self.params['JT']
+        wi = self.params['wi']
+        wo = self.params['wo']
+        wd = self.params['wd']
+        r = np.tanh(self.x)
+        
+        dx = -self.x + np.matmul(JT, r) + np.matmul(wi, input.reshape(self.params['d_input'],1))
+        self.x = self.x + (dx*dt) / tau
+        r = np.tanh(self.x)
+        z = np.matmul(wo.T, r)
+        zd = np.matmul(wd.T, r)
+        
+        return z, zd
+        
     
     def update_weights():
         # update the weights of the neural network during training

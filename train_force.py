@@ -86,7 +86,7 @@ def zero_fat_mats(params, is_train=True):
     return z_mat, zd_mat, x_mat, r_mat, wo_dot, wd_dot
 
 
-def train(params, exp_mat, target_mat, dummy_mat, input_digits, dist='Gauss'):
+def train(network, params, exp_mat, target_mat, dummy_mat, input_digits, dist='Gauss'):
 
     """
     Main function to implement training using modified FORCE algorithm
@@ -127,18 +127,8 @@ def train(params, exp_mat, target_mat, dummy_mat, input_digits, dist='Gauss'):
         zd_mat[:, i] = zd.reshape(-1)
         x_mat[:, i] = x.reshape(-1)
         r_mat[:, i] = r.reshape(-1)
-
-        dx = -x + np.matmul(JT, r) + np.matmul(wi, exp_mat[:, i].reshape([net_prs['d_input'], 1]))
-
-
-        x = x + (dx * dt) / tau
-        # if i%1000 == 0:
-        #     plt.hist(x)
-        #     plt.show()
-        r = np.tanh(x)
-        z = np.matmul(wo.T, r)
-
-        zd = np.matmul(wd.T, r)
+        
+        z, zd = network.memory_trial(exp_mat[:, i])
 
         if np.all(dummy_mat[:, i] != 0.):
 
@@ -157,6 +147,8 @@ def train(params, exp_mat, target_mat, dummy_mat, input_digits, dist='Gauss'):
                 wd -= Delta_wd
 
                 wd_dot[i, :] = np.linalg.norm(Delta_wd / (update_step * dt), axis=0, keepdims=True)
+                
+                network.params['wd'] = wd
 
 
         if np.any(target_mat[:, i] != 0.):
@@ -175,8 +167,11 @@ def train(params, exp_mat, target_mat, dummy_mat, input_digits, dist='Gauss'):
                 wo -= Delta_w
 
                 wo_dot[i] = np.linalg.norm(Delta_w / (update_step * dt))
+                
+                network.params['wo'] = wo
 
         JT = g*J + np.matmul(wf, wo.T) + np.matmul(wfd, wd.T)
+        network.params['JT'] = JT
 
         # plot
         def draw_output():

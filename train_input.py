@@ -111,7 +111,7 @@ if not msc_prs['train_input']:
     print('Training single network with FORCE Reinforce\n')
     net_input_params = {**net_prs, **train_prs}
     single_net = Network(net_input_params, msc_prs['seed'])
-    x_train, params = train(params, exp_mat, target_mat, dummy_mat, input_digits, dist=train_prs['init_dist'])
+    x_train, params = train(single_net, params, exp_mat, target_mat, dummy_mat, input_digits, dist=train_prs['init_dist'])
     x_ICs, r_ICs, internal_x = test(params, x_train, exp_mat, target_mat, dummy_mat, input_digits)
     msc_prs['name'] = 'single_network_' + msc_prs['name']
     params['msc'] = msc_prs
