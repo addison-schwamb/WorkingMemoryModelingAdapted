@@ -61,32 +61,29 @@ def initialize_net(params, dist='Gauss'):
     return Pw, Pd, J, x, wf, wo, wfd, wd, wi
 
 
-def zero_fat_mats(params, is_train=True):
+def zero_fat_mats(params, t_trial, is_train=True):
 
     '''
     initialize zero matrix
     '''
 
-    net_prs = params['network']
-    train_prs = params['train']
-    task_prs = params['task']
     if is_train:
-        total_size = train_prs['n_train'] + train_prs['n_train_ext']
+        total_size = params['n_train'] + params['n_train_ext']
     elif not is_train:
-        total_size = train_prs['n_test']
+        total_size = params['n_test']
 
-    total_steps = int(total_size * task_prs['t_trial'] / net_prs['dt'])
+    total_steps = int(total_size * t_trial / params['dt'])
     z_mat = np.zeros(total_steps)
-    zd_mat = np.zeros([net_prs['d_input'], total_steps])
-    x_mat = np.zeros([net_prs['N'], total_steps])
-    r_mat = np.zeros([net_prs['N'], total_steps])
-    wo_dot = np.zeros([total_steps, net_prs['d_output']])
-    wd_dot = np.zeros([total_steps, net_prs['d_input']])
+    zd_mat = np.zeros([params['d_input'], total_steps])
+    x_mat = np.zeros([params['N'], total_steps])
+    r_mat = np.zeros([params['N'], total_steps])
+    wo_dot = np.zeros([total_steps, params['d_output']])
+    wd_dot = np.zeros([total_steps, params['d_input']])
 
     return z_mat, zd_mat, x_mat, r_mat, wo_dot, wd_dot
 
 
-def train(network, params, exp_mat, target_mat, dummy_mat, input_digits, dist='Gauss'):
+def train(network, task_prs, exp_mat, target_mat, dummy_mat, input_digits, dist='Gauss'):
 
     """
     Main function to implement training using modified FORCE algorithm
@@ -98,23 +95,27 @@ def train(network, params, exp_mat, target_mat, dummy_mat, input_digits, dist='G
     """
 
     tic = time.time()
-    net_prs = params['network']
-    train_prs = params['train']
-    task_prs = params['task']
-    msc_prs = params['msc']
-    dt, tau, g = net_prs['dt'], net_prs['tau'], net_prs['g']
-    update_step = train_prs['update_step']
-    train_steps = int((train_prs['n_train'] + train_prs['n_train_ext'])* task_prs['t_trial'] / net_prs['dt'])
+    #net_prs = params['network']
+    #train_prs = params['train']
+    #task_prs = params['task']
+    #msc_prs = params['msc']
+    params = network.params
+    dt, tau, g = params['dt'], params['tau'], params['g']
+    update_step = params['update_step']
+    train_steps = int((params['n_train'] + params['n_train_ext'])* task_prs['t_trial'] / params['dt'])
     time_steps = np.arange(0, train_steps, 1)
 
     # initialization
-    Pw, Pd, J, x, wf, wo, wfd, wd, wi = initialize_net(params, dist=dist)
-    JT = g*J + np.matmul(wf, wo.T) + np.matmul(wfd, wd.T)
+    #Pw, Pd, J, x, wf, wo, wfd, wd, wi = initialize_net(params, dist=dist)
+    #JT = g*J + np.matmul(wf, wo.T) + np.matmul(wfd, wd.T)
+    Pw, Pd, J, JT = params['Pw'], params['Pd'], params['J'], params['JT']
+    wf, wo, wfd, wd, wi = params['wf'], params['wo'], params['wfd'], params['wd'], params['wi']
+    x = network.x
     r = np.tanh(x)
     z = np.matmul(wo.T, r)
     zd = np.matmul(wd.T, r)
 
-    z_mat, zd_mat, x_mat, r_mat, wo_dot, wd_dot = zero_fat_mats(params, is_train=True)
+    z_mat, zd_mat, x_mat, r_mat, wo_dot, wd_dot = zero_fat_mats(params, task_prs['t_trial'], is_train=True)
 
     trial = 0
     plt_c = 0
@@ -129,49 +130,8 @@ def train(network, params, exp_mat, target_mat, dummy_mat, input_digits, dist='G
         r_mat[:, i] = r.reshape(-1)
         
         z, zd = network.memory_trial(exp_mat[:, i])
+        wo_dot[i], wd_dot[i,:] = network.update_weights(i, dummy_mat[:,i], target_mat[:,i])
 
-        if np.all(dummy_mat[:, i] != 0.):
-
-            if i % update_step == 0 and i >= update_step :
-                #print('I AM BUG')
-
-                Pdr = np.matmul(Pd, r)
-                num_pd = np.outer(Pdr, np.matmul(r.T, Pd))
-                denum_pd = 1 + np.matmul(r.T, Pdr)
-                Pd -= num_pd / denum_pd
-
-                target_d = np.reshape(dummy_mat[:, i], [net_prs['d_input'], 1])
-                ed_ = zd - target_d
-
-                Delta_wd = np.outer(Pdr, ed_) / denum_pd
-                wd -= Delta_wd
-
-                wd_dot[i, :] = np.linalg.norm(Delta_wd / (update_step * dt), axis=0, keepdims=True)
-                
-                network.params['wd'] = wd
-
-
-        if np.any(target_mat[:, i] != 0.):
-
-            if i % update_step == 0 and i >= update_step:
-                Pr = np.matmul(Pw, r)
-                num_pw = np.outer(Pr, np.matmul(r.T, Pw))
-                denum_pw = 1 + np.matmul(r.T, Pr)
-                Pw -= num_pw / denum_pw
-
-                target = np.reshape(target_mat[:, i], [net_prs['d_output'], 1])
-                e_ = z - target
-
-                # Delta_w = onp.outer(Pr, e_)
-                Delta_w = np.outer(Pr, e_) / denum_pw
-                wo -= Delta_w
-
-                wo_dot[i] = np.linalg.norm(Delta_w / (update_step * dt))
-                
-                network.params['wo'] = wo
-
-        JT = g*J + np.matmul(wf, wo.T) + np.matmul(wfd, wd.T)
-        network.params['JT'] = JT
 
         # plot
         def draw_output():
@@ -203,18 +163,18 @@ def train(network, params, exp_mat, target_mat, dummy_mat, input_digits, dist='G
             # ax4.plot(time_steps[s:i], wd_dot[s:i, 0] + 2)
             # ax4.plot(time_steps[s:i], wd_dot[s:i, 1])
 
-        if i % int(msc_prs['n_plot'] * task_prs['t_trial'] / net_prs['dt'])  == 0 and i != 0:
+        ##if i % int(msc_prs['n_plot'] * task_prs['t_trial'] / net_prs['dt'])  == 0 and i != 0:
 
 
-            n1n2 = str(input_digits[plt_c: plt_c + msc_prs['n_plot']])
+            ##n1n2 = str(input_digits[plt_c: plt_c + msc_prs['n_plot']])
             # plt.figure(num=1, figsize=(14, 7))
             # drawnow(draw_output)
             # plt.pause(2)
             # plt.figure(num=2, figsize=(14, 7))
             # drawnow(draw_input)
 
-            s = i
-            plt_c += msc_prs['n_plot']
+            ##s = i
+            ##plt_c += msc_prs['n_plot']
 
         #plot gradients
         # if i % 350 * 200 == 0 and i != 0 and i>350 * (train_prs['n_train']-10) :
@@ -234,45 +194,41 @@ def train(network, params, exp_mat, target_mat, dummy_mat, input_digits, dist='G
     print('read out norm = ', np.linalg.norm(wo))
     print('dummy norm = ', np.linalg.norm(wd, axis=0, keepdims=True))
 
-    model_params = {'JT':JT, 'J':J, 'g':g, 'wf':wf, 'wo':wo, 'wfd':wfd, 'wd':wd, 'wi':wi}
-    params['model'] = model_params
+    #model_params = {'JT':JT, 'J':J, 'g':g, 'wf':wf, 'wo':wo, 'wfd':wfd, 'wd':wd, 'wi':wi}
+    #params['model'] = model_params
     task_prs['counter'] = i
-    return x, params
+    return network, task_prs
 
 
-def test(params, x_train, exp_mat, target_mat, dummy_mat, input_digits):
+def test(network, task_prs, exp_mat, target_mat, dummy_mat, input_digits):
     """
     Function to visualize if network has learned the task and get trial conclusion as initial condition of next trial
 
     x_train: final state of network at training phase
     Return: initial state and activity
     """
-    net_prs = params['network']
-    train_prs = params['train']
-    task_prs = params['task']
-    msc_prs = params['msc']
-    model_prs = params['model']
-    wo, wd = model_prs['wo'], model_prs['wd']
-    wf, wfd, wi = model_prs['wf'], model_prs['wfd'], model_prs['wi']
-    JT, J = model_prs['JT'], model_prs['J']
-    dt, tau, g = net_prs['dt'], net_prs['tau'], net_prs['g']
-    test_steps = int(train_prs['n_test'] * task_prs['t_trial'] / net_prs['dt'])
+    params = network.params
+    wo, wd = params['wo'], params['wd']
+    wf, wfd, wi = params['wf'], params['wfd'], params['wi']
+    JT, J = params['JT'], params['J']
+    dt, tau, g = params['dt'], params['tau'], params['g']
+    test_steps = int(params['n_test'] * task_prs['t_trial'] / dt)
     time_steps = np.arange(0, test_steps, 1)
     counter = task_prs['counter']
     exp_mat = exp_mat[:, counter+1:]
     target_mat = target_mat[:, counter+1:]
     dummy_mat = dummy_mat[:, counter+1:]
-    test_digits = input_digits[train_prs['n_train']+ train_prs['n_train_ext']:]
+    test_digits = input_digits[params['n_train']+ params['n_train_ext']:]
 
     i00, i01, i10, i11 = 0, 0, 0, 0
     i02, i20, i22, i12, i21 = 0, 0, 0, 0, 0
 
-    x = x_train
+    x = network.x
     r = np.tanh(x)
     z = np.matmul(wo.T, r)
     zd = np.matmul(wd.T, r)
 
-    z_mat, zd_mat, x_mat, r_mat, wo_dot, wd_dot = zero_fat_mats(params, is_train=False)
+    z_mat, zd_mat, x_mat, r_mat, wo_dot, wd_dot = zero_fat_mats(params, task_prs['t_trial'], is_train=False)
     trial = 0
     s = 0
     plt_c = 0
@@ -284,14 +240,7 @@ def test(params, x_train, exp_mat, target_mat, dummy_mat, input_digits):
         x_mat[:, i] = x.reshape(-1)
         r_mat[:, i] = r.reshape(-1)
 
-        dx = -x + np.matmul(JT, r) + np.matmul(wi, exp_mat[:, i].reshape([net_prs['d_input'], 1]))
-
-
-        x = x + (dx * dt) / tau
-        r = np.tanh(x)
-        z = np.matmul(wo.T, r)
-
-        zd = np.matmul(wd.T, r)
+        z, zd = network.memory_trial(exp_mat[:, i])
 
         # save initial condition
         if i % int((task_prs['t_trial'])/ dt ) == 0 and i != 0:
@@ -362,7 +311,7 @@ def test(params, x_train, exp_mat, target_mat, dummy_mat, input_digits):
 
 
             plt.subplot(211)
-            plt.title(n1n2 + '\n' + params['msc']['name'])
+            ##plt.title(n1n2 + '\n' + params['msc']['name'])
             plt.plot(time_steps[ s:i], target_mat[:, s:i].T, c='gray')
             plt.plot(time_steps[ s:i], z_mat[s:i], c='c')
 
@@ -388,9 +337,9 @@ def test(params, x_train, exp_mat, target_mat, dummy_mat, input_digits):
             ax4.plot(time_steps[s:i], wd_dot[s:i, 1])
 
 
-        if i % int(msc_prs['n_plot'] * task_prs['t_trial'] / net_prs['dt'])  == 0 and i != 0:
+        ##if i % int(msc_prs['n_plot'] * task_prs['t_trial'] / net_prs['dt'])  == 0 and i != 0:
 
-            n1n2 = str(test_digits[plt_c: plt_c + msc_prs['n_plot']])
+            ##n1n2 = str(test_digits[plt_c: plt_c + msc_prs['n_plot']])
             # plt.figure(num=1, figsize=(14,7))
             #
             # drawnow(draw_output)
@@ -407,7 +356,7 @@ def test(params, x_train, exp_mat, target_mat, dummy_mat, input_digits):
     x_ICs = np.array([x00, x01, x10, x11])
     r_ICs = np.array([r00, r01, r10, r11])
 
-    return  x_ICs, r_ICs, x_mat
+    return  network, x_ICs, r_ICs, x_mat
 
 
 def save_data(name, params, x_ICs, r_ICs):

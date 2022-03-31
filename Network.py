@@ -7,7 +7,6 @@ class Network:
         # very slightly adapted from Elham's initialize_net method
         
         # Set parameters
-        print('constructing Network class')
         N = params['N']
         rng = np.random.RandomState(seed)
         std = 1/np.sqrt(params['pg']*N)
@@ -63,9 +62,57 @@ class Network:
         return z, zd
         
     
-    def update_weights():
+    def update_weights(self, iter, dummy_var, target_var):
         # update the weights of the neural network during training
-        pass
+        update_step = self.params['update_step']
+        dt = self.params['dt']
+        Pd = self.params['Pd']
+        Pw = self.params['Pw']
+        wo = self.params['wo']
+        wd = self.params['wd']
+        wo_dot, wd_dot = np.zeros([1,]), np.zeros([2,])
+        x = self.x
+        r = np.tanh(x)
+        z = np.matmul(wo.T, r)
+        zd = np.matmul(wd.T, r)
+        
+        if np.all(dummy_var != 0.):
+            if iter % update_step == 0 and iter >= update_step:
+                # update dummy weights
+                Pdr = np.matmul(Pd, r)
+                num_pd = np.outer(Pdr, np.matmul(r.T, Pd))
+                denom_pd = 1 + np.matmul(r.T, Pdr)
+                Pd -= num_pd / denom_pd
+                self.params['Pd'] = Pd
+                
+                target_d = np.reshape(dummy_var, [self.params['d_input'], 1])
+                ed_ = zd - target_d
+                
+                Delta_wd = np.outer(Pdr, ed_) / denom_pd
+                wd -= Delta_wd
+                self.params['wd'] = wd
+                
+                wd_dot = np.linalg.norm(Delta_wd / (update_step * dt), axis=0, keepdims=True)
+            
+        if np.any(target_var != 0.):
+            if iter % update_step == 0 and iter >= update_step:
+                Pr = np.matmul(Pw, r)
+                num_pw = np.outer(Pr, np.matmul(r.T, Pw))
+                denom_pw = 1 + np.matmul(r.T, Pr)
+                Pw -= num_pw / denom_pw
+                self.params['Pw'] = Pw
+                
+                target = np.reshape(target_var, [self.params['d_output'], 1])
+                e_ = z - target
+                
+                Delta_w = np.outer(Pr, e_) / denom_pw
+                wo -= Delta_w
+                self.params['wo'] = wo
+                
+                wo_dot = np.linalg.norm(Delta_w / (update_step * dt))
+        
+        self.params['JT'] = self.params['g']*self.params['J'] + np.matmul(self.params['wf'], wo.T) + np.matmul(self.params['wfd'], wd.T)
+        return wo_dot, wd_dot
     
     def save_ICs():
         # save the initial conditions leading to a given response in testing
