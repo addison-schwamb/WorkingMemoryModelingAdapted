@@ -1,4 +1,6 @@
 import numpy as np
+import time
+import pickle
 from scipy import sparse
 
 class Network:
@@ -118,6 +120,57 @@ class Network:
         # save the initial conditions leading to a given response in testing
         pass
     
-    def remove_neurons():
+    def remove_neurons(self):
         # remove neurons, i.e., set cells in the JT matrix to 0
-        pass
+        pct_rmv = self.params['pct_rmv']
+        x = self.x
+        xlen = np.size(x)
+        JT = self.params['JT']
+        J = self.params['J']
+        Pd = self.params['Pd']
+        Pw = self.params['Pw']
+        wi = self.params['wi']
+        wo = self.params['wo']
+        wd = self.params['wd']
+        wf = self.params['wf']
+        wfd = self.params['wfd']
+        
+        num_to_rmv = round(pct_rmv*xlen)
+        rmv_indices = np.random.randint(0,xlen,(num_to_rmv))
+        
+        for i in range(num_to_rmv):
+            x = np.concatenate((x[0:rmv_indices[i]],x[rmv_indices[i]+1:]))
+            JT = np.concatenate((JT[0:rmv_indices[i],:],JT[rmv_indices[i]+1:,:]),axis=0)
+            JT = np.concatenate((JT[:,0:rmv_indices[i]],JT[:,rmv_indices[i]+1:]),axis=1)
+            J = np.concatenate((J[0:rmv_indices[i],:],J[rmv_indices[i]+1:,:]),axis=0)
+            J = np.concatenate((J[:,0:rmv_indices[i]],J[:,rmv_indices[i]+1:]),axis=1)
+            Pd = np.concatenate((Pd[0:rmv_indices[i],:],Pd[rmv_indices[i]+1:,:]),axis=0)
+            Pd = np.concatenate((Pd[:,0:rmv_indices[i]],Pd[:,rmv_indices[i]+1:]),axis=1)
+            Pw = np.concatenate((Pw[0:rmv_indices[i],:],Pw[rmv_indices[i]+1:,:]),axis=0)
+            Pw = np.concatenate((Pw[:,0:rmv_indices[i]],Pw[:,rmv_indices[i]+1:]),axis=1)
+            wi = np.concatenate((wi[0:rmv_indices[i],:],wi[rmv_indices[i]+1:,:]),axis=0)
+            wo = np.concatenate((wo[0:rmv_indices[i],:],wo[rmv_indices[i]+1:,:]),axis=0)
+            wd = np.concatenate((wd[0:rmv_indices[i],:],wd[rmv_indices[i]+1:,:]),axis=0)
+            wf = np.concatenate((wf[0:rmv_indices[i],:],wf[rmv_indices[i]+1:,:]),axis=0)
+            wfd = np.concatenate((wfd[0:rmv_indices[i],:],wfd[rmv_indices[i]+1:,:]),axis=0)
+            
+        self.params['JT'] = JT
+        self.params['J'] = J
+        self.params['Pd'] = Pd
+        self.params['Pw'] = Pw
+        self.params['wi'] = wi
+        self.params['wo'] = wo
+        self.params['wd'] = wd
+        self.params['wf'] = wf
+        self.params['wfd'] = wfd
+        self.params['N'] = np.size(x)
+        self.x = x
+        print(str(100*pct_rmv) + '% of neurons removed\n')
+        
+    def save_network(self, name=None, prefix='train', dir=None):
+        file_name = prefix + '_' + name
+        print(dir + file_name)
+        #f = open(dir + file_name, 'wb')
+        with open(dir + file_name, 'wb') as f:
+            pickle.dump((self.params,self.x), f, protocol=-1)
+        

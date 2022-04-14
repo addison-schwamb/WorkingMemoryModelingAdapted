@@ -95,32 +95,18 @@ def train(network, task_prs, exp_mat, target_mat, dummy_mat, input_digits, dist=
     """
 
     tic = time.time()
-    #net_prs = params['network']
-    #train_prs = params['train']
-    #task_prs = params['task']
-    #msc_prs = params['msc']
     params = network.params
-    dt, tau, g = params['dt'], params['tau'], params['g']
-    update_step = params['update_step']
     train_steps = int((params['n_train'] + params['n_train_ext'])* task_prs['t_trial'] / params['dt'])
     time_steps = np.arange(0, train_steps, 1)
 
     # initialization
-    #Pw, Pd, J, x, wf, wo, wfd, wd, wi = initialize_net(params, dist=dist)
-    #JT = g*J + np.matmul(wf, wo.T) + np.matmul(wfd, wd.T)
-    Pw, Pd, J, JT = params['Pw'], params['Pd'], params['J'], params['JT']
-    wf, wo, wfd, wd, wi = params['wf'], params['wo'], params['wfd'], params['wd'], params['wi']
+    wo, wd = params['wo'], params['wd']
     x = network.x
     r = np.tanh(x)
     z = np.matmul(wo.T, r)
     zd = np.matmul(wd.T, r)
 
-    z_mat, zd_mat, x_mat, r_mat, wo_dot, wd_dot = zero_fat_mats(params, task_prs['t_trial'], is_train=True)
-
-    trial = 0
-    plt_c = 0
-    s = 0
-    si = 0
+    z_mat, zd_mat, x_mat, r_mat, wo_dot, wd_dot = zero_fat_mats(network.params, task_prs['t_trial'], is_train=True)
 
     # start training
     for i in range(train_steps):
@@ -132,70 +118,11 @@ def train(network, task_prs, exp_mat, target_mat, dummy_mat, input_digits, dist=
         z, zd = network.memory_trial(exp_mat[:, i])
         wo_dot[i], wd_dot[i,:] = network.update_weights(i, dummy_mat[:,i], target_mat[:,i])
 
-
-        # plot
-        def draw_output():
-
-            # plt.subplot(211)
-            plt.title(n1n2)
-            plt.plot(time_steps[s:i], target_mat[:, s:i].T, c='gray')
-            plt.plot(time_steps[s:i], z_mat[s:i], c='c')
-
-            # plt.subplot(212)
-            # plt.plot(time_steps[s:i], wo_dot[s:i])
-
-
-        def draw_input():
-
-            ax2 = plt.subplot(211)
-            ax2.set_title(n1n2)
-
-            ax2.plot(time_steps[s:i], exp_mat[0, s:i], c='b')
-            ax2.plot(time_steps[s:i], exp_mat[1, s:i] - 3, c='k')
-
-            ax3 = plt.subplot(212)
-            ax3.plot(time_steps[s:i], dummy_mat[0, s:i], 'c--')
-            ax3.plot(time_steps[s:i], dummy_mat[1, s:i] - 10, 'g--')
-            ax3.plot(time_steps[s:i], zd_mat[0, s:i], 'c')
-            ax3.plot(time_steps[s:i], zd_mat[1, s:i] - 10, 'g')
-
-            # ax4 = plt.subplot(313)
-            # ax4.plot(time_steps[s:i], wd_dot[s:i, 0] + 2)
-            # ax4.plot(time_steps[s:i], wd_dot[s:i, 1])
-
-        ##if i % int(msc_prs['n_plot'] * task_prs['t_trial'] / net_prs['dt'])  == 0 and i != 0:
-
-
-            ##n1n2 = str(input_digits[plt_c: plt_c + msc_prs['n_plot']])
-            # plt.figure(num=1, figsize=(14, 7))
-            # drawnow(draw_output)
-            # plt.pause(2)
-            # plt.figure(num=2, figsize=(14, 7))
-            # drawnow(draw_input)
-
-            ##s = i
-            ##plt_c += msc_prs['n_plot']
-
-        #plot gradients
-        # if i % 350 * 200 == 0 and i != 0 and i>350 * (train_prs['n_train']-10) :
-        #     wo_dot = wo_dot.squeeze()
-        #     wo_grad = wo_dot[:i][np.argwhere(wo_dot[:i])]
-        #     #print('wo_grad', wo_grad.shape)
-        #     plt.figure(figsize=(14,7), num=1)
-        #     plt.title(params['msc']['name'])
-        #     plt.plot(wo_grad, c='gray')
-        #     plt.axhline(y=0.01, linestyle='--')
-        #     plt.pause(0.01)
-        #     plt.show(block=False)
-        #     si = i
-
     toc = time.time()
     print('\n', 'train time = ' , (toc-tic)/60)
-    print('read out norm = ', np.linalg.norm(wo))
-    print('dummy norm = ', np.linalg.norm(wd, axis=0, keepdims=True))
+    print('read out norm = ', np.linalg.norm(network.params['wo']))
+    print('dummy norm = ', np.linalg.norm(network.params['wd'], axis=0, keepdims=True))
 
-    #model_params = {'JT':JT, 'J':J, 'g':g, 'wf':wf, 'wo':wo, 'wfd':wfd, 'wd':wd, 'wi':wi}
-    #params['model'] = model_params
     task_prs['counter'] = i
     return network, task_prs
 
