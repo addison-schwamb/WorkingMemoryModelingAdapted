@@ -12,6 +12,7 @@ import json
 import sys
 import os
 from SPM_task import *
+from Network import *
 from train_force import *
 from posthoc_tests import *
 from damage_network import *
@@ -22,7 +23,7 @@ parser.add_argument('-d', type=str)
 args = parser.parse_args()
 kwargs= json.loads(args.d)
 
-def set_all_parameters( g, pg, fb_var, input_var,  n_train, encoding, seed, init_dist, train_input, pct_rmv, inhibitory = True, activation='tanh', isFORCE = False):
+def set_all_parameters( g, pg, fb_var, input_var,  n_train, encoding, seed, init_dist, retrain, pct_rmv, activation='tanh', isFORCE = False):
     params = dict()
 
     net_params = dict()
@@ -35,6 +36,7 @@ def set_all_parameters( g, pg, fb_var, input_var,  n_train, encoding, seed, init
     net_params['N'] = 1000
     net_params['fb_var'] = fb_var
     net_params['input_var'] = input_var
+    net_params['pct_rmv'] = pct_rmv
     params['network'] = net_params
 
     task_params = dict()
@@ -49,6 +51,7 @@ def set_all_parameters( g, pg, fb_var, input_var,  n_train, encoding, seed, init
     task_params['output_encoding'] = encoding  # how 0, 1, 2 are encoded
     task_params['keep_perms'] = [(0, 0), (0, 1), (1, 0), (1, 1)]
     task_params['n_digits'] = 9
+    task_params['counter'] = 0
     params['task'] = task_params
 
     train_params = dict()
@@ -64,10 +67,6 @@ def set_all_parameters( g, pg, fb_var, input_var,  n_train, encoding, seed, init
     train_params['epsilon'] = [0.005, 0.01, 0.05, 0.1]
     params['train'] = train_params
     
-    damage_params = dict()
-    damage_params['pct_rmv'] = pct_rmv
-    damage_params['inhibitory'] = inhibitory
-    params['damage'] = damage_params
 
     other_params = dict()
     other_params['name'] = str(n_train) + '_training_steps'
@@ -76,7 +75,7 @@ def set_all_parameters( g, pg, fb_var, input_var,  n_train, encoding, seed, init
     #  str(train_params['n_train']+ train_params['n_train_ext'])+ 'Gauss_S' + 'FORCE'
     other_params['n_plot'] = 10
     other_params['seed'] = seed  #default is 0
-    other_params['train_input'] = train_input
+    other_params['retrain'] = retrain
     params['msc'] = other_params
 
     return params
@@ -98,7 +97,6 @@ labels, digits_rep = get_digits_reps()
 task_prs = params['task']
 train_prs = params['train']
 net_prs = params['network']
-damage_prs = params['damage']
 msc_prs = params['msc']
 task = sum_task_experiment(task_prs['n_digits'], train_prs['n_train'], train_prs['n_train_ext'], train_prs['n_test'], task_prs['time_intervals'],
                            net_prs['dt'], task_prs['output_encoding'], task_prs['keep_perms'] , digits_rep, labels, msc_prs['seed'])
@@ -106,37 +104,42 @@ task = sum_task_experiment(task_prs['n_digits'], train_prs['n_train'], train_prs
 
 exp_mat, target_mat, dummy_mat, input_digits, output_digits = task.experiment()
 
-if not msc_prs['train_input']:
+if not msc_prs['retrain']:
     print('Training single network with FORCE Reinforce\n')
-	single_net = Network({'network':net_prs,'train':train_prs}, msc_prs['seed'])
-    x_train, params = train(params, exp_mat, target_mat, dummy_mat, input_digits, dist=train_prs['init_dist'])
-    x_ICs, r_ICs, internal_x = test(params, x_train, exp_mat, target_mat, dummy_mat, input_digits)
+    net_input_params = {**net_prs, **train_prs}
+    single_net = Network(net_input_params, msc_prs['seed'])
+    single_net, task_prs = train(single_net, task_prs, exp_mat, target_mat, dummy_mat, input_digits, dist=train_prs['init_dist'])
+    single_net, x_ICs, r_ICs, internal_x = test(single_net, task_prs, exp_mat, target_mat, dummy_mat, input_digits)
     msc_prs['name'] = 'single_network_' + msc_prs['name']
     params['msc'] = msc_prs
 
-elif msc_prs['train_input']:
-    int_params, int_x_train = read_data_variable_size('intact_net_500', prefix='train', dir=dir)
-    print('Training input to damaged network with FORCE Reinforce\n')
+elif msc_prs['retrain']:
+    dmg_params, dmg_x = read_data_variable_size('single_network_500_training_steps_1.0%_removed', prefix='train', dir=dir)
+    net_input_params = {**net_prs, **train_prs}
+    single_net = Network(net_input_params, msc_prs['seed'])
+    single_net.params = dmg_params
+    single_net.x = dmg_x
+    
+    single_net, x_ICs, r_ICs, internal_x = test(single_net, task_prs, exp_mat, target_mat, dummy_mat, input_digits)
+    
+    single_net, task_prs = train(single_net, task_prs, exp_mat, target_mat, dummy_mat, input_digits, dist=train_prs['init_dist'])
+    msc_prs['name'] = 'retrained_network_' + msc_prs['name']
+    params['msc'] = msc_prs
     #x_train, params = train_input()
     #x_ICs, r_ICs, internal_x = test_input()
 
-if damage_prs['pct_rmv'] > 0:
-    model_prs = params['model']
-    damage_prs = params['damage']
-    JT = model_prs['JT']
-    JT = remove_neurons(JT,damage_prs['pct_rmv'],damage_prs['inhibitory'])
-    model_prs['JT'] = JT
-    params['model'] = model_prs
-    msc_prs['name'] = msc_prs['name'] + '_' + str(damage_prs['pct_rmv']*100) + '%_'
-    if damage_prs['inhibitory']: msc_prs['name'] = msc_prs['name'] + 'inhibitory_removed'
-    else: msc_prs['name'] = msc_prs['name'] = msc_prs['name'] + 'excitatory_removed'
+if net_prs['pct_rmv'] > 0:
+    single_net.remove_neurons()
+    msc_prs['name'] = msc_prs['name'] + '_' + str(net_prs['pct_rmv']*100) + '%_removed'
     params['msc'] = msc_prs
+
+single_net, x_ICs, r_ICs, internal_x = test(single_net, task_prs, exp_mat, target_mat, dummy_mat, input_digits)
     
 
-save_data_variable_size(params, x_train, name=msc_prs['name'], prefix='train', dir=dir)
+single_net.save_network(name=msc_prs['name'], prefix='train', dir=dir)
 
 
-error_ratio = error_rate(params, x_ICs, digits_rep, labels)
+#error_ratio = error_rate(params, x_ICs, digits_rep, labels)
 
 
 

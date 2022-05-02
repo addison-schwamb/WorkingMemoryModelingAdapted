@@ -14,4 +14,4 @@ COPY train_force.py .
 COPY train_posthoc_clst.py .
 COPY train_input.py .
 COPY damage_network.py .
-COPY readAttractorAndPerformance.py .
+COPY Network.py .
