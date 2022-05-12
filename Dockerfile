@@ -16,3 +16,4 @@ COPY train_input.py .
 COPY damage_network.py .
 COPY Network.py .
 COPY run_jobs.py .
+COPY readAttractorAndPerformance.py .

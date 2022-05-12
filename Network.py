@@ -75,7 +75,10 @@ class Network:
         wo_dot, wd_dot = np.zeros([1,]), np.zeros([2,])
         x = self.x
         r = np.tanh(x)
-        z = np.matmul(wo.T, r)
+        if 'z' in self.params.keys():
+            z = self.params['z']
+        else:
+            z = np.matmul(wo.T, r)
         zd = np.matmul(wd.T, r)
         
         if np.all(dummy_var != 0.):
@@ -89,6 +92,7 @@ class Network:
                 
                 target_d = np.reshape(dummy_var, [self.params['d_input'], 1])
                 ed_ = zd - target_d
+                #print('ed: ', ed_)
                 
                 Delta_wd = np.outer(Pdr, ed_) / denom_pd
                 wd -= Delta_wd
@@ -106,6 +110,8 @@ class Network:
                 
                 target = np.reshape(target_var, [self.params['d_output'], 1])
                 e_ = z - target
+                #print('e: ', e_)
+                #print('\n')
                 
                 Delta_w = np.outer(Pr, e_) / denom_pw
                 wo -= Delta_w
@@ -165,7 +171,7 @@ class Network:
         self.params['wfd'] = wfd
         self.params['N'] = np.size(x)
         self.x = x
-        print(str(100*pct_rmv) + '% of neurons removed\n')
+        #print(str(100*pct_rmv) + '% of neurons removed\n')
         
     def save_network(self, name=None, prefix='train', dir=None):
         file_name = prefix + '_' + name

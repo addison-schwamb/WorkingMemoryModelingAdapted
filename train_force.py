@@ -119,9 +119,9 @@ def train(network, task_prs, exp_mat, target_mat, dummy_mat, input_digits, dist=
         wo_dot[i], wd_dot[i,:] = network.update_weights(i, dummy_mat[:,i], target_mat[:,i])
 
     toc = time.time()
-    print('\n', 'train time = ' , (toc-tic)/60)
-    print('read out norm = ', np.linalg.norm(network.params['wo']))
-    print('dummy norm = ', np.linalg.norm(network.params['wd'], axis=0, keepdims=True))
+    #print('\n', 'train time = ' , (toc-tic)/60)
+    #print('read out norm = ', np.linalg.norm(network.params['wo']))
+    #print('dummy norm = ', np.linalg.norm(network.params['wd'], axis=0, keepdims=True))
 
     task_prs['counter'] = i
     return network, task_prs
@@ -146,6 +146,8 @@ def test(network, task_prs, exp_mat, target_mat, dummy_mat, input_digits):
     target_mat = target_mat[:, counter+1:]
     dummy_mat = dummy_mat[:, counter+1:]
     test_digits = input_digits[params['n_train']+ params['n_train_ext']:]
+    output = task_prs['output_encoding']
+    correct = 0
 
     i00, i01, i10, i11 = 0, 0, 0, 0
     i02, i20, i22, i12, i21 = 0, 0, 0, 0, 0
@@ -227,8 +229,10 @@ def test(network, task_prs, exp_mat, target_mat, dummy_mat, input_digits):
                 x21 = x_mat[:, i - 1][:, np.newaxis]
                 i21 = 1
             
-            print('test_digits: ',test_digits[trial])
-            print('z: ',np.around(2*z)/2.0);
+            #print('test_digits: ',test_digits[trial])
+            #print('z: ',np.around(2*z)/2.0);
+            if np.around(2*z)/2.0 == output[sum(test_digits[trial][1])]:
+                correct += 1
 
             trial += 1
 
@@ -280,10 +284,165 @@ def test(network, task_prs, exp_mat, target_mat, dummy_mat, input_digits):
 
     # x_ICs = np.array([x00, x01, x10, x11, x02, x20, x12, x21, x22])
     # r_ICs = np.array([r00, r01, r10, r11, r02, r20, r12, r21, r22])
+    pct_correct = correct/(params['n_test']-1)
     x_ICs = np.array([x00, x01, x10, x11])
     r_ICs = np.array([r00, r01, r10, r11])
 
-    return  network, x_ICs, r_ICs, x_mat
+    return  network, pct_correct, x_ICs, r_ICs, x_mat
+
+def train_ext_net(ext_net, int_net, task_prs, exp_mat, target_mat, dummy_mat, input_digits, dist='Gauss'):
+    """
+    Main function to implement training of an external network (a network trained to input to a damaged network) using modified FORCE algorithm
+    """
+    
+    tic = time.time()
+    params = ext_net.params
+    train_steps = int((params['n_train'] + params['n_train_ext']) * task_prs['t_trial'] / params['dt'])
+    time_steps = np.arange(0, train_steps, 1)
+    
+    # initialization
+    wo, wd = params['wo'], params['wd']
+    x = ext_net.x
+    r = np.tanh(x)
+    z = np.matmul(wo.T, r)
+    zd = np.matmul(wd.T, r)
+    
+    z_mat, zd_mat, x_mat, r_mat, wo_dot, wd_dot = zero_fat_mats(ext_net.params, task_prs['t_trial'], is_train=True)
+    
+    # start training
+    for i in range(train_steps):
+        z_mat[i] = z
+        zd_mat[:, i] = zd.reshape(-1)
+        x_mat[:, i] = x.reshape(-1)
+        r_mat[:, i] = r.reshape(-1)
+        
+        u, ext_zd = ext_net.memory_trial(exp_mat[:, i])
+        
+        z, int_zd = int_net.memory_trial(u*np.ones((1, 2)))
+        ext_net.params['z'] = z
+        #ext_net.params['zd'] = ext_zd
+        
+        ext_net.update_weights(i, dummy_mat[:, i], target_mat[:,i])
+        
+    toc = time.time()
+    print('\n', 'train time = ' , (toc-tic)/60)
+    task_prs['counter'] = i
+    return ext_net, task_prs
+    
+def test_ext_net(ext_net, int_net, task_prs, exp_mat, target_mat, dummy_mat, input_digits):
+    """ Testing function but for external network providing input to a damaged "internal" network
+    """
+    
+    params = ext_net.params
+    wo, wd = params['wo'], params['wd']
+    wf, wfd, wi = params['wf'], params['wfd'], params['wi']
+    JT, J = params['JT'], params['J']
+    dt, tau, g = params['dt'], params['tau'], params['g']
+    test_steps = int(params['n_test'] * task_prs['t_trial'] / dt)
+    time_steps = np.arange(0, test_steps, 1)
+    counter = task_prs['counter']
+    exp_mat = exp_mat[:, counter+1:]
+    target_mat = target_mat[:, counter+1:]
+    dummy_mat = dummy_mat[:, counter+1:]
+    test_digits = input_digits[params['n_train']+ params['n_train_ext']:]
+    output = task_prs['output_encoding']
+    correct = 0
+
+    i00, i01, i10, i11 = 0, 0, 0, 0
+    i02, i20, i22, i12, i21 = 0, 0, 0, 0, 0
+
+    x = ext_net.x
+    r = np.tanh(x)
+    #z = np.matmul(wo.T, r)
+    z = ext_net.params['z']
+    zd = np.matmul(wd.T, r)
+
+    z_mat, zd_mat, x_mat, r_mat, wo_dot, wd_dot = zero_fat_mats(params, task_prs['t_trial'], is_train=False)
+    trial = 0
+    s = 0
+    plt_c = 0
+    
+    for i in range(test_steps):
+
+        z_mat[i] = z
+        zd_mat[:, i] = zd.reshape(-1)
+        x_mat[:, i] = x.reshape(-1)
+        r_mat[:, i] = r.reshape(-1)
+
+        u, ext_zd = ext_net.memory_trial(exp_mat[:, i])
+        z, int_zd = int_net.memory_trial(u*np.ones((1, 2)))
+        ext_net.params['z'] = z
+
+        # save initial condition
+        if i % int((task_prs['t_trial'])/ dt ) == 0 and i != 0:
+
+
+            if test_digits[trial][1] == (0,0) and i00 == 0:
+
+                r00 = r_mat[:, i-1][:, np.newaxis]
+                x00 = x_mat[:, i-1][:, np.newaxis]
+                i00 = 1
+
+            elif test_digits[trial][1] == (0,1) and i01 == 0:
+
+                r01 = r_mat[:, i-1][:, np.newaxis]
+                x01 = x_mat[:, i-1][:, np.newaxis]
+                i01 = 1
+
+            elif test_digits[trial][1] == (1,0) and i10 == 0:
+
+                r10 = r_mat[:, i-1][:, np.newaxis]
+                x10 = x_mat[:, i-1][:, np.newaxis]
+                i10 = 1
+
+            elif test_digits[trial][1] == (1,1) and i11 == 0:
+
+                r11 = r_mat[:, i-1][:, np.newaxis]
+                x11 = x_mat[:, i-1][:, np.newaxis]
+                i11 = 1
+
+            elif test_digits[trial][1] == (0, 2) and i02 == 0:
+
+                r02 = r_mat[:, i - 1][:, np.newaxis]
+                x02 = x_mat[:, i - 1][:, np.newaxis]
+                i02 = 1
+
+            elif test_digits[trial][1] == (2, 0) and i20 == 0:
+
+                r20 = r_mat[:, i - 1][:, np.newaxis]
+                x20 = x_mat[:, i - 1][:, np.newaxis]
+                i20 = 1
+
+            elif test_digits[trial][1] == (2, 2) and i22 == 0:
+
+                r22 = r_mat[:, i - 1][:, np.newaxis]
+                x22 = x_mat[:, i - 1][:, np.newaxis]
+                i22 = 1
+
+            elif test_digits[trial][1] == (1, 2) and i12 == 0:
+
+                r12 = r_mat[:, i - 1][:, np.newaxis]
+                x12 = x_mat[:, i - 1][:, np.newaxis]
+                i12 = 1
+
+            elif test_digits[trial][1] == (2, 1) and i21 == 0:
+
+                r21 = r_mat[:, i - 1][:, np.newaxis]
+                x21 = x_mat[:, i - 1][:, np.newaxis]
+                i21 = 1
+            
+            print('test_digits: ',test_digits[trial])
+            print('z: ',np.around(2*z)/2.0);
+            if np.around(2*z)/2.0 == output[sum(test_digits[trial][1])]:
+                correct += 1
+
+            trial += 1
+    
+    pct_correct = correct/(params['n_test']-1)
+    x_ICs = np.array([x00, x01, x10, x11])
+    r_ICs = np.array([r00, r01, r10, r11])
+
+    return  ext_net, pct_correct, x_ICs, r_ICs, x_mat
 
 
 def save_data(name, params, x_ICs, r_ICs):
