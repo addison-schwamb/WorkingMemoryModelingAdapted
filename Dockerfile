@@ -12,3 +12,8 @@ COPY robustness_tests.py .
 COPY SPM_task.py .
 COPY train_force.py .
 COPY train_posthoc_clst.py .
+COPY train_input.py .
+COPY damage_network.py .
+COPY Network.py .
+COPY run_jobs.py .
+COPY readAttractorAndPerformance.py .

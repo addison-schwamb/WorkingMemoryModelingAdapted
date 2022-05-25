@@ -72,15 +72,13 @@ def forward_simulate(params, initial_x, fw_steps):
     return r_mat, x_mat, z_mat, zd_mat
 
 
-def one_trial(params, ph_params, digits_rep, labels, trial, ic_index, extend=False):
+def one_trial(network, task_prs, ph_params, digits_rep, labels, trial, ic_index, extend=False):
     # takes ic_index eg 0 and a specific trial eg. (0,1) and returns trajectory of that trial
 
-    net_prs = params['network']
-    task_prs = params['task']
-    model_prs = params['model']
-    wo, wd = model_prs['wo'], model_prs['wd']
-    wf, wfd, wi = model_prs['wf'], model_prs['wfd'], model_prs['wi']
-    J = model_prs['J']
+    net_prs = network.params
+    wo, wd = net_prs['wo'], net_prs['wd']
+    wf, wfd, wi = net_prs['wf'], net_prs['wfd'], net_prs['wi']
+    J = net_prs['J']
     dt, tau, g = net_prs['dt'], net_prs['tau'], net_prs['g']
     fw_steps = int(1 * task_prs['t_trial'] / net_prs['dt'])
     ph_params['delay_wm'] = ph_params['extend_delays'][0]
@@ -197,18 +195,14 @@ def one_trial(params, ph_params, digits_rep, labels, trial, ic_index, extend=Fal
     return r_mat, x_mat, raug
 
 
-def fw_from_multi_ICs(params, ph_params, digits_rep, labels, trial, ic_index, ICtype='response', ic_zero=True):
+def fw_from_multi_ICs(network, task_prs, ph_params, digits_rep, labels, trial, ic_index, input, dmg_net=None, ICtype='response', ic_zero=True):
     # forward simulate network from multiple ICs without giving network any input
     # ICs can be either during delay or end of each trial
     # ICtype='delay1' or 'delay2' or 'response', trial --> trial type eg (0,1) , ic_index--> IC type eg 0
-    net_prs = params['network']
-    train_prs = params['train']
-    task_prs = params['task']
-    msc_prs = params['msc']
-    model_prs = params['model']
-    wo, wd = model_prs['wo'], model_prs['wd']
-    wf, wfd, wi = model_prs['wf'], model_prs['wfd'], model_prs['wi']
-    J = model_prs['J']
+    net_prs = network.params
+    wo, wd = net_prs['wo'], net_prs['wd']
+    wf, wfd, wi = net_prs['wf'], net_prs['wfd'], net_prs['wi']
+    J, JT = net_prs['J'], net_prs['JT']
     dt, tau, g = net_prs['dt'], net_prs['tau'], net_prs['g']
     fw_steps = int((ph_params['n_fw'] * task_prs['t_trial']) / net_prs['dt'])
     time_steps = np.arange(0, fw_steps, 1)
@@ -221,7 +215,7 @@ def fw_from_multi_ICs(params, ph_params, digits_rep, labels, trial, ic_index, IC
     stim2 = stim1 + stim_off + stim_on
 
     if ICtype == 'delay1':
-        _, x_mat, _ = one_trial(params, ph_params, digits_rep, labels, trial, ic_index, extend=False)
+        _, x_mat, _ = one_trial(network, task_prs, ph_params, digits_rep, labels, trial, ic_index, extend=False)
         initial_states = x_mat[:, int(stim1 / dt)].T
         # initial_states = x_mat[:, int(stim1/dt): int((stim1+stim_off)/dt)].T
         # index = rng.choice(initial_states.shape[0], ph_params['n_ICs'])
@@ -239,7 +233,7 @@ def fw_from_multi_ICs(params, ph_params, digits_rep, labels, trial, ic_index, IC
 
 
     elif ICtype == 'delay2':
-        _, x_mat, _ = one_trial(params, ph_params, digits_rep, labels, trial, ic_index, extend=False)
+        _, x_mat, _ = one_trial(network, task_prs, ph_params, digits_rep, labels, trial, ic_index, extend=False)
         initial_states = x_mat[:, int(stim2 / dt): int((stim2 + stim_off) / dt)].T
         index = rng.choice(initial_states.shape[0], ph_params['n_ICs'])
         initial_states = initial_states[index, :]
@@ -305,13 +299,15 @@ def fw_from_multi_ICs(params, ph_params, digits_rep, labels, trial, ic_index, IC
             z_[:, i] = z
             zd_[:, i] = zd
 
-            dx = -x + g * np.matmul(J, r) + np.matmul(wf, z) + np.matmul(wfd, zd)
-
+            dx = -x + np.matmul(JT,r)
             x = x + (dx * dt) / tau
-
             r = np.tanh(x)
             z = np.matmul(wo.T, r)
             zd = np.matmul(wd.T, r)
+            
+            if input:
+                u = z #z is input from external helper net
+                z, int_zd = dmg_net.memory_trial(u*np.ones((1, 2)))
 
 
         trajectories[:, :, k] = r_mat.T
@@ -321,15 +317,15 @@ def fw_from_multi_ICs(params, ph_params, digits_rep, labels, trial, ic_index, IC
     return trajectories, z_mat, zd_mat
 
 
-def attractor_type(params, ph_params, digits_rep, labels):
+def attractor_type(network, task_prs, ph_params, digits_rep, labels, input, dmg_net=None):
     # evaluate type of attractors using 1. mean and variance of z and z_d 2. evaluation of unique fixed points given
     #  multiple noisy ics
 
-    output_encoding = params['task']['output_encoding']
-    t_trial = params['task']['t_trial']
-    dt = params['network']['dt']
+    output_encoding = task_prs['output_encoding']
+    t_trial = task_prs['t_trial']
+    dt = network.params['dt']
     steps = 2 * int(t_trial/dt)
-    trajectories, z_mat, zd_mat = fw_from_multi_ICs(params, ph_params, digits_rep, labels, (0,0), 0, ICtype='response', ic_zero=True)
+    trajectories, z_mat, zd_mat = fw_from_multi_ICs(network, task_prs, ph_params, digits_rep, labels, (0,0), 0, input, dmg_net, ICtype='response', ic_zero=True)
     z_variance = np.var(z_mat[-steps:, :, :], axis=0).astype(np.float32)
 
     z_mean = np.mean(z_mat[-steps:, :, :], axis=0).astype(np.float32)
