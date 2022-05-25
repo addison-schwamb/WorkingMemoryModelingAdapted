@@ -316,9 +316,10 @@ def train_ext_net(ext_net, int_net, task_prs, exp_mat, target_mat, dummy_mat, in
         x_mat[:, i] = x.reshape(-1)
         r_mat[:, i] = r.reshape(-1)
         
-        u, ext_zd = ext_net.memory_trial(exp_mat[:, i])
+        u, ext_zd = ext_net.memory_trial(np.concatenate((exp_mat[:,i],z),axis=None))
         
         z, int_zd = int_net.memory_trial(u*np.ones((1, 2)))
+        
         ext_net.params['z'] = z
         #ext_net.params['zd'] = ext_zd
         
@@ -369,7 +370,7 @@ def test_ext_net(ext_net, int_net, task_prs, exp_mat, target_mat, dummy_mat, inp
         x_mat[:, i] = x.reshape(-1)
         r_mat[:, i] = r.reshape(-1)
 
-        u, ext_zd = ext_net.memory_trial(exp_mat[:, i])
+        u, ext_zd = ext_net.memory_trial(np.concatenate((exp_mat[:,i],z),axis=None))
         z, int_zd = int_net.memory_trial(u*np.ones((1, 2)))
         ext_net.params['z'] = z
 

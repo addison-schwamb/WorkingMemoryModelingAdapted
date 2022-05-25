@@ -90,9 +90,10 @@ class Network:
                 Pd -= num_pd / denom_pd
                 self.params['Pd'] = Pd
                 
-                target_d = np.reshape(dummy_var, [self.params['d_input'], 1])
+                target_d = np.reshape(dummy_var, [self.params['d_input']-1, 1])
+                target = np.reshape(target_var, [self.params['d_output'], 1])
+                target_d = np.concatenate((target_d, target),axis=0)
                 ed_ = zd - target_d
-                #print('ed: ', ed_)
                 
                 Delta_wd = np.outer(Pdr, ed_) / denom_pd
                 wd -= Delta_wd
