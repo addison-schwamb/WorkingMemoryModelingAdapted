@@ -122,7 +122,7 @@ def main(d):
         single_net.params['attractor'] = []
         single_net.params['attractor'].append(pre_dmg_att)
         print(pre_dmg_att)
-        #single_net.save_network(name=msc_prs['name'], prefix='train', dir=dir)
+        single_net.save_network(name=msc_prs['name'], prefix='train', dir=dir)
         #print('Percent Correct: ', str(pre_pct_correct*100), '%')
 
     elif msc_prs['input']:
