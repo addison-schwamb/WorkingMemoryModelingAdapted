@@ -108,6 +108,7 @@ def main(d):
 
 	exp_mat, target_mat, dummy_mat, input_digits, output_digits = task.experiment()
 
+<<<<<<< HEAD
 	if not msc_prs['input']:
 		print('Training single network with FORCE Reinforce\n')
 		net_input_params = {**net_prs, **train_prs}
