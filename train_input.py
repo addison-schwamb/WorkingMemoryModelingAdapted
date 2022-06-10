@@ -131,7 +131,6 @@ def main(d):
         dmg_net = Network(net_input_params, msc_prs['seed'])
         dmg_net.params = dmg_params
         dmg_net.x = dmg_x
-        net_input_params['d_input'] += 1
         ext_net = Network(net_input_params, msc_prs['seed'])
         
         print('training helper network to input to damaged network')
@@ -153,7 +152,7 @@ def main(d):
         ext_net.params['attractor'].append(input_dmg_att)
         print(helper_att)
         print(input_dmg_att)
-        ext_net.save_network(name=msc_prs['name'], prefix='fb_helper', dir=dir)
+        ext_net.save_network(name=msc_prs['name'], prefix='latent_fb_helper', dir=dir)
 
     
 

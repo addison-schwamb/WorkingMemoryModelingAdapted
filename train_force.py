@@ -306,6 +306,7 @@ def train_ext_net(ext_net, int_net, task_prs, exp_mat, target_mat, dummy_mat, in
     r = np.tanh(x)
     z = np.matmul(wo.T, r)
     zd = np.matmul(wd.T, r)
+    int_zd = zd
     
     z_mat, zd_mat, x_mat, r_mat, wo_dot, wd_dot = zero_fat_mats(ext_net.params, task_prs['t_trial'], is_train=True)
     
@@ -316,7 +317,7 @@ def train_ext_net(ext_net, int_net, task_prs, exp_mat, target_mat, dummy_mat, in
         x_mat[:, i] = x.reshape(-1)
         r_mat[:, i] = r.reshape(-1)
         
-        u, ext_zd = ext_net.memory_trial(np.concatenate((exp_mat[:,i],z),axis=None))
+        u, ext_zd = ext_net.memory_trial(np.concatenate((exp_mat[:,i],int_zd),axis=None))
         
         z, int_zd = int_net.memory_trial(u*np.ones((1, 2)))
         

@@ -21,7 +21,7 @@ class Network:
         if params['init_dist'] == 'Gauss':
             x = 0.1*rng.randn(N,1)
             wf = (1. * rng.randn(N, params['d_output'])) / params['fb_var']
-            wi = (1. * rng.randn(N, params['d_input'])) / params['input_var']
+            wi = (1. * rng.randn(N, params['d_input']+2)) / params['input_var']
             wfd = (1. * rng.randn(N, params['d_input'])) / params['fb_var']
         
         elif params['init_dist'] == 'Uniform':
@@ -55,7 +55,7 @@ class Network:
         wd = self.params['wd']
         r = np.tanh(self.x)
         
-        dx = -self.x + np.matmul(JT, r) + np.matmul(wi, input.reshape(self.params['d_input'],1))
+        dx = -self.x + np.matmul(JT, r) + np.matmul(wi, input.reshape(-1,1))
         self.x = self.x + (dx*dt) / tau
         r = np.tanh(self.x)
         z = np.matmul(wo.T, r)
@@ -90,9 +90,7 @@ class Network:
                 Pd -= num_pd / denom_pd
                 self.params['Pd'] = Pd
                 
-                target_d = np.reshape(dummy_var, [self.params['d_input']-1, 1])
-                target = np.reshape(target_var, [self.params['d_output'], 1])
-                target_d = np.concatenate((target_d, target),axis=0)
+                target_d = np.reshape(dummy_var, [-1, 1])
                 ed_ = zd - target_d
                 
                 Delta_wd = np.outer(Pdr, ed_) / denom_pd
