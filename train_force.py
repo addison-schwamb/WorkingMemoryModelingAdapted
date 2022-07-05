@@ -10,7 +10,7 @@ import time
 import pickle
 import numpy as np
 from scipy import sparse
-from matplotlib import pyplot as plt
+#from matplotlib import pyplot as plt
 from drawnow import *
 from SPM_task import *
 
@@ -358,6 +358,7 @@ def test_ext_net(ext_net, int_net, task_prs, exp_mat, target_mat, dummy_mat, inp
     #z = np.matmul(wo.T, r)
     z = ext_net.params['z']
     zd = np.matmul(wd.T, r)
+    int_zd = zd
 
     z_mat, zd_mat, x_mat, r_mat, wo_dot, wd_dot = zero_fat_mats(params, task_prs['t_trial'], is_train=False)
     trial = 0
@@ -371,7 +372,7 @@ def test_ext_net(ext_net, int_net, task_prs, exp_mat, target_mat, dummy_mat, inp
         x_mat[:, i] = x.reshape(-1)
         r_mat[:, i] = r.reshape(-1)
 
-        u, ext_zd = ext_net.memory_trial(np.concatenate((exp_mat[:,i],z),axis=None))
+        u, ext_zd = ext_net.memory_trial(np.concatenate((exp_mat[:,i],int_zd),axis=None))
         z, int_zd = int_net.memory_trial(u*np.ones((1, 2)))
         ext_net.params['z'] = z
 

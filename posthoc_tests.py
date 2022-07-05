@@ -278,6 +278,7 @@ def fw_from_multi_ICs(network, task_prs, ph_params, digits_rep, labels, trial, i
 
 
     trajectories = np.zeros([fw_steps, net_prs['N'], ph_params['n_ICs']])
+    x_trajectories = np.zeros([fw_steps, net_prs['N'], ph_params['n_ICs']])
     z_mat, zd_mat = np.zeros([fw_steps, net_prs['d_output'], ph_params['n_ICs']]), np.zeros([fw_steps, net_prs['d_input'], ph_params['n_ICs']])
     # fw simulate from set of initial conditions for i_params['n_fw'] steps
 
@@ -311,10 +312,11 @@ def fw_from_multi_ICs(network, task_prs, ph_params, digits_rep, labels, trial, i
 
 
         trajectories[:, :, k] = r_mat.T
+        x_trajectories[:, :, k] = x_mat.T
         z_mat[:, :, k] = z_.T
         zd_mat[:, :, k] = zd_.T
 
-    return trajectories, z_mat, zd_mat
+    return trajectories, x_trajectories, z_mat, zd_mat
 
 
 def attractor_type(network, task_prs, ph_params, digits_rep, labels, input, dmg_net=None):
@@ -325,7 +327,7 @@ def attractor_type(network, task_prs, ph_params, digits_rep, labels, input, dmg_
     t_trial = task_prs['t_trial']
     dt = network.params['dt']
     steps = 2 * int(t_trial/dt)
-    trajectories, z_mat, zd_mat = fw_from_multi_ICs(network, task_prs, ph_params, digits_rep, labels, (0,0), 0, input, dmg_net, ICtype='response', ic_zero=True)
+    trajectories, x_trajectories, z_mat, zd_mat = fw_from_multi_ICs(network, task_prs, ph_params, digits_rep, labels, (0,0), 0, input, dmg_net, ICtype='response', ic_zero=True)
     z_variance = np.var(z_mat[-steps:, :, :], axis=0).astype(np.float32)
 
     z_mean = np.mean(z_mat[-steps:, :, :], axis=0).astype(np.float32)
@@ -349,7 +351,7 @@ def attractor_type(network, task_prs, ph_params, digits_rep, labels, input, dmg_
             attractor = 'both'
 
 
-    return trajectories, np.unique(z_mean), np.unique(zd_mean), attractor
+    return trajectories, x_trajectories, np.unique(z_mean), np.unique(zd_mean), attractor
 
 
 

@@ -32,6 +32,7 @@ def set_all_parameters( g, pg, fb_var, input_var,  n_train, encoding, seed, init
     net_params['fb_var'] = fb_var
     net_params['input_var'] = input_var
     net_params['pct_rmv'] = pct_rmv
+    net_params['input_net'] = input
     params['network'] = net_params
 
     task_params = dict()
@@ -70,7 +71,6 @@ def set_all_parameters( g, pg, fb_var, input_var,  n_train, encoding, seed, init
     #  str(train_params['n_train']+ train_params['n_train_ext'])+ 'Gauss_S' + 'FORCE'
     other_params['n_plot'] = 10
     other_params['seed'] = seed  #default is 0
-    other_params['input'] = input
     other_params['net_id'] = net_id
     params['msc'] = other_params
 
@@ -108,7 +108,7 @@ def main(d):
 
     exp_mat, target_mat, dummy_mat, input_digits, output_digits = task.experiment()
 
-    if not msc_prs['input']:
+    if net_prs['input_net'] == 'None':
         print('Training single network with FORCE Reinforce\n')
         net_input_params = {**net_prs, **train_prs}
         single_net = Network(net_input_params, msc_prs['seed'])
@@ -118,14 +118,18 @@ def main(d):
         single_net.params['pct_correct'].append(pre_pct_correct)
         ph_params = set_posthoc_params(x_ICs, r_ICs)
     
-        trajectories, unique_z_mean, unique_zd_mean, pre_dmg_att = attractor_type(single_net, task_prs, ph_params, digits_rep, labels, 0)
+        trajectories, x_trajectories, unique_z_mean, unique_zd_mean, pre_dmg_att = attractor_type(single_net, task_prs, ph_params, digits_rep, labels, 0)
         single_net.params['attractor'] = []
         single_net.params['attractor'].append(pre_dmg_att)
+        single_net.params['r_trajectories'] = []
+        single_net.params['r_trajectories'].append(trajectories)
+        single_net.params['x_trajectories'] = []
+        single_net.params['x_trajectories'].append(x_trajectories)
         print(pre_dmg_att)
         single_net.save_network(name=msc_prs['name'], prefix='train', dir=dir)
         #print('Percent Correct: ', str(pre_pct_correct*100), '%')
 
-    elif msc_prs['input']:
+    elif net_prs['input_net'] == 'New':
         dmg_params, dmg_x = read_data_variable_size(msc_prs['net_id']+'_500_training_steps_1.0%_removed', prefix='train', dir=dir)
         net_input_params = {**net_prs, **train_prs}
         dmg_net = Network(net_input_params, msc_prs['seed'])
@@ -145,14 +149,49 @@ def main(d):
         #dmg_net, pct_correct, x_ICs, r_ICs, internal_x = test(dmg_net, task_prs, exp_mat, target_mat, dummy_mat, input_digits)
         ph_params = set_posthoc_params(x_ICs, r_ICs)
         
-        trajectories, unique_z_mean, unique_zd_mean, helper_att = attractor_type(ext_net, task_prs, ph_params, digits_rep, labels, 0)
-        trajectories, unique_z_mean, unique_zd_mean, input_dmg_att = attractor_type(ext_net, task_prs, ph_params, digits_rep, labels, 1, dmg_net)
+        trajectories, x_trajectories, unique_z_mean, unique_zd_mean, helper_att = attractor_type(ext_net, task_prs, ph_params, digits_rep, labels, 0)
+        trajectories, x_trajectories, unique_z_mean, unique_zd_mean, input_dmg_att = attractor_type(ext_net, task_prs, ph_params, digits_rep, labels, 1, dmg_net)
         ext_net.params['attractor'] = []
         ext_net.params['attractor'].append(helper_att)
         ext_net.params['attractor'].append(input_dmg_att)
         print(helper_att)
         print(input_dmg_att)
         ext_net.save_network(name=msc_prs['name'], prefix='latent_fb_helper', dir=dir)
+        
+    else:
+        dmg_params, dmg_x = read_data_variable_size(msc_prs['net_id']+'_500_training_steps_1.0%_removed', prefix='train', dir=dir)
+        net_input_params = {**net_prs, **train_prs}
+        dmg_net = Network(net_input_params, msc_prs['seed'])
+        dmg_net.params = dmg_params
+        dmg_net.x = dmg_x
+        
+        ext_params, ext_x = read_data_variable_size(net_prs['input_net'], prefix='latent_fb_helper', dir=dir)
+        ext_net = Network(net_input_params, msc_prs['seed'])
+        ext_net.params = ext_params
+        ext_net.x = ext_x
+        ext_net.params['n_train'] = train_prs['n_train']
+        
+        print('adapting helper network to input to damaged network')
+        ext_net, task_prs = train_ext_net(ext_net, dmg_net, task_prs, exp_mat, target_mat, dummy_mat, input_digits, dist=train_prs['init_dist'])
+        ext_net, input_pct_correct, x_ICs, r_ICs, external_x = test_ext_net(ext_net, dmg_net, task_prs, exp_mat, target_mat, dummy_mat, input_digits)
+        print('Percent Correct: ', str(input_pct_correct*100), '%')
+        msc_prs['name'] = msc_prs['name'] + '_damaged_' + msc_prs['net_id']
+        params['msc'] = msc_prs
+        
+        ext_net.params['pct_correct'] = []
+        ext_net.params['pct_correct'].append(input_pct_correct)
+        #dmg_net, pct_correct, x_ICs, r_ICs, internal_x = test(dmg_net, task_prs, exp_mat, target_mat, dummy_mat, input_digits)
+        ph_params = set_posthoc_params(x_ICs, r_ICs)
+        
+        trajectories, x_trajectories, unique_z_mean, unique_zd_mean, helper_att = attractor_type(ext_net, task_prs, ph_params, digits_rep, labels, 0)
+        trajectories, x_trajectories, unique_z_mean, unique_zd_mean, input_dmg_att = attractor_type(ext_net, task_prs, ph_params, digits_rep, labels, 1, dmg_net)
+        ext_net.params['attractor'] = []
+        ext_net.params['attractor'].append(helper_att)
+        ext_net.params['attractor'].append(input_dmg_att)
+        print(helper_att)
+        print(input_dmg_att)
+        print(msc_prs['name'])
+        #ext_net.save_network(name=msc_prs['name'], prefix='latent_fb_helper', dir=dir)
 
     
 
@@ -175,10 +214,10 @@ def main(d):
     
 
     
-    if msc_prs['input']:
-        return input_dmg_att, input_pct_correct
-    else:
+    if net_prs['input_net'] == 'None':
         return pre_dmg_att, post_dmg_att, pre_pct_correct, post_pct_correct
+    else:
+        return input_dmg_att, input_pct_correct
 
 if __name__ == "__main__":
     print(sys.argv[2])

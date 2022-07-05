@@ -21,7 +21,10 @@ class Network:
         if params['init_dist'] == 'Gauss':
             x = 0.1*rng.randn(N,1)
             wf = (1. * rng.randn(N, params['d_output'])) / params['fb_var']
-            wi = (1. * rng.randn(N, params['d_input']+2)) / params['input_var']
+            if params['input_net'] == 'None':
+                wi = (1. * rng.randn(N, params['d_input'])) / params['input_var']
+            else:    
+                wi = (1. * rng.randn(N, params['d_input']+2)) / params['input_var']
             wfd = (1. * rng.randn(N, params['d_input'])) / params['fb_var']
         
         elif params['init_dist'] == 'Uniform':
