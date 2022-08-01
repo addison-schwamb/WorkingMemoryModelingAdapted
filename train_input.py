@@ -23,7 +23,10 @@ def set_all_parameters( g, pg, fb_var, input_var,  n_train, encoding, seed, init
 
     net_params = dict()
     net_params['d_input'] = 2
-    net_params['d_output'] = 1
+    if input == 'None':
+        net_params['d_output'] = 1
+    else:
+        net_params['d_output'] = 2
     net_params['tau'] = 1
     net_params['dt'] = 0.1
     net_params['g'] = g

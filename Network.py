@@ -57,8 +57,11 @@ class Network:
         wo = self.params['wo']
         wd = self.params['wd']
         r = np.tanh(self.x)
-        
-        dx = -self.x + np.matmul(JT, r) + np.matmul(wi, input.reshape(-1,1))
+
+        if np.shape(wi)[1] < np.shape(input)[0]:
+            dx = -self.x + np.matmul(JT, r) + np.matmul(np.concatenate((np.ones([np.shape(wi)[0],1]),wi),axis=1),input.reshape(-1,1))
+        else:
+            dx = -self.x + np.matmul(JT, r) + np.matmul(wi, input.reshape(-1,1))
         self.x = self.x + (dx*dt) / tau
         r = np.tanh(self.x)
         z = np.matmul(wo.T, r)
@@ -110,7 +113,8 @@ class Network:
                 Pw -= num_pw / denom_pw
                 self.params['Pw'] = Pw
                 
-                target = np.reshape(target_var, [self.params['d_output'], 1])
+                #target = np.reshape(target_var, [self.params['d_output'], 1])
+                target = np.reshape(target_var, [1, 1])
                 e_ = z - target
                 #print('e: ', e_)
                 #print('\n')

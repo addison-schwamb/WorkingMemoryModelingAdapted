@@ -73,7 +73,7 @@ def zero_fat_mats(params, t_trial, is_train=True):
         total_size = params['n_test']
 
     total_steps = int(total_size * t_trial / params['dt'])
-    z_mat = np.zeros(total_steps)
+    z_mat = np.zeros([params['d_output'],total_steps])
     zd_mat = np.zeros([params['d_input'], total_steps])
     x_mat = np.zeros([params['N'], total_steps])
     r_mat = np.zeros([params['N'], total_steps])
@@ -105,18 +105,24 @@ def train(network, task_prs, exp_mat, target_mat, dummy_mat, input_digits, dist=
     r = np.tanh(x)
     z = np.matmul(wo.T, r)
     zd = np.matmul(wd.T, r)
+    trial = 0
 
     z_mat, zd_mat, x_mat, r_mat, wo_dot, wd_dot = zero_fat_mats(network.params, task_prs['t_trial'], is_train=True)
 
     # start training
     for i in range(train_steps):
-        z_mat[i] = z
+        z_mat[:, i] = z
         zd_mat[:, i] = zd.reshape(-1)
         x_mat[:, i] = x.reshape(-1)
         r_mat[:, i] = r.reshape(-1)
         
         z, zd = network.memory_trial(exp_mat[:, i])
         wo_dot[i], wd_dot[i,:] = network.update_weights(i, dummy_mat[:,i], target_mat[:,i])
+        
+        if i % int((task_prs['t_trial'])/ params['dt'] ) == 0 and i != 0:
+            print('test_digits: ',input_digits[trial])
+            print('z: ',np.around(2*z)/2.0);
+            trial += 1
 
     toc = time.time()
     #print('\n', 'train time = ' , (toc-tic)/60)
@@ -312,14 +318,13 @@ def train_ext_net(ext_net, int_net, task_prs, exp_mat, target_mat, dummy_mat, in
     
     # start training
     for i in range(train_steps):
-        z_mat[i] = z
+        z_mat[:, i] = z.reshape(-1)
         zd_mat[:, i] = zd.reshape(-1)
         x_mat[:, i] = x.reshape(-1)
         r_mat[:, i] = r.reshape(-1)
         
         u, ext_zd = ext_net.memory_trial(np.concatenate((exp_mat[:,i],int_zd),axis=None))
-        
-        z, int_zd = int_net.memory_trial(u*np.ones((1, 2)))
+        z, int_zd = int_net.memory_trial(np.concatenate((u,ext_zd[0:1]),axis=None))
         
         ext_net.params['z'] = z
         #ext_net.params['zd'] = ext_zd
@@ -366,14 +371,13 @@ def test_ext_net(ext_net, int_net, task_prs, exp_mat, target_mat, dummy_mat, inp
     plt_c = 0
     
     for i in range(test_steps):
-
-        z_mat[i] = z
+        z_mat[:, i] = z
         zd_mat[:, i] = zd.reshape(-1)
         x_mat[:, i] = x.reshape(-1)
         r_mat[:, i] = r.reshape(-1)
 
         u, ext_zd = ext_net.memory_trial(np.concatenate((exp_mat[:,i],int_zd),axis=None))
-        z, int_zd = int_net.memory_trial(u*np.ones((1, 2)))
+        z, int_zd = int_net.memory_trial(np.concatenate((u,ext_zd[0:1]),axis=None))
         ext_net.params['z'] = z
 
         # save initial condition
